@@ -1,0 +1,489 @@
+---
+title: "Surefoot"
+author: "Shyni David"
+date: "10/3/2019"
+output: html_document
+---
+
+Import library
+```{r results = 'hide', message = FALSE, warning = FALSE}
+#install.packages("tidyverse")
+library(tidyverse)
+library(sqldf)
+#install.packages("readxl")
+library(readxl)
+library(glmnet)
+
+
+```
+
+
+Import file
+```{r results = 'hide', message = FALSE, warning = FALSE}
+setwd("~/Desktop/Job related/Surefoot")
+surefoot  <- read_excel("surefoot data analyst application - GWP dataset.xlsx")
+
+```
+
+
+Data Wrangling
+```{r}
+#deleting the first 5 rows
+surefoot_01 <- surefoot[-c(1:5),]
+
+#correcting the column names 
+col_names = c("Transaction_ID","Unique_session", "Device", "Quantity_of_products", "Total_Revenue", "Chose_Gift_with_Purchase")
+
+colnames(surefoot_01) <- col_names 
+
+sqldf("select distinct(Unique_session) from surefoot_01")
+
+surefoot_02 <- surefoot_01 %>% mutate(val_uniq_session = ifelse(Unique_session == 'No GWP', 'No_GWP', ifelse(Unique_session == 'shown GWP', 'shown_GWP', 'U')))
+
+#The gsub() function looks for any instance of “\$” and replaces it with “”
+surefoot_02$Total_Revenue <-  (gsub("\\$", "", surefoot_02$Total_Revenue))
+surefoot_02$Total_Revenue <-  (gsub("\\,", "", surefoot_02$Total_Revenue))
+surefoot_02$Total_Revenue <- as.numeric(surefoot_02$Total_Revenue)
+ 
+
+sqldf("select distinct(Device) from surefoot_01")
+
+sqldf("select distinct(Chose_Gift_with_Purchase) from surefoot_01")
+
+ 
+surefoot_03 <- surefoot_02 %>% mutate(val_chose_GWP = ifelse(Chose_Gift_with_Purchase == 'no', 'Did_not_choose_GWP', ifelse(Chose_Gift_with_Purchase == 'yes', 'choose_GWP', 'Not_applicable')))
+
+#Final file
+surefoot_04 <- surefoot_03[, -c(2, 6)]
+
+#Qualify for GWP when Unique session = shown_GWP and Total revenue >= 100
+#Do not Qualify GWP when Unique session = shown_GWP and Total revenue < 100
+surefoot_04_01 <- surefoot_04 %>% mutate(Qualify = ifelse(Total_Revenue >= 100 & val_uniq_session == 'shown_GWP', 'Qualify_GWP', ifelse(Total_Revenue < 100 & val_uniq_session == 'shown_GWP','Do_not_Qualify_GWP', 'NA')))
+
+#sqldf("select * from surefoot_04 where Total_revenue < 100 and val_uniq_session = 'shown_GWP'")
+
+summary(surefoot_04_01)
+glimpse(surefoot_04_01)
+
+#make Number of products numeric
+surefoot_05 <- surefoot_04_01
+surefoot_05$Quantity_of_products <- as.numeric(surefoot_05$Quantity_of_products)
+
+```
+
+
+Numerical Variable
+```{r}
+  ggplot(surefoot_04_01) + geom_histogram(aes(Total_Revenue), binwidth = 20, fill = "blue",col = "black")
+```
+
+Observations :
+We see that the Total Revenue is more or less normally distributed.
+
+
+
+ Categorical variable
+```{r}
+  surefoot_04_01 %>%
+  group_by(val_uniq_session) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(val_uniq_session), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 1 : Unique Session") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())  
+
+ surefoot_04_01 %>%
+  group_by(Qualify) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Qualify), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 2 : Qualify GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+
+ surefoot_04_01 %>%
+  group_by(val_chose_GWP) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(val_chose_GWP), y = counts)) + geom_bar(stat = 'identity', fill = "coral1", , width = .3) + ggtitle("Fig 3 : Choosing GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+
+surefoot_04_01_01 <- surefoot_04_01 %>% filter(val_chose_GWP != 'Not_applicable')
+surefoot_04_01_02 <- surefoot_04_01_01 %>% filter(val_chose_GWP != 'choose_GWP')
+surefoot_04_01_03 <- surefoot_04_01_01 %>% filter(val_chose_GWP != 'Did_not_choose_GWP')
+
+
+  surefoot_04_01_02 %>% 
+  group_by(Quantity_of_products, val_chose_GWP) %>%
+  summarise(counts = n())   %>%
+  ggplot(aes(reorder(x = as.factor(Quantity_of_products), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1",  ) + ggtitle(" Quantity of Products purchased by visitors who did not chose GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25 ) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1)) + xlab("Total Quantity Purchased per Transaction") +ylab("Number of Transactions")
+
+  surefoot_04_01_03 %>% 
+  group_by(Quantity_of_products, val_chose_GWP) %>%
+  summarise(counts = n())   %>%
+  ggplot(aes(reorder(x = as.factor(Quantity_of_products), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("  Quantity of Products purchased by visitors who chose GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25 ) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1)) + xlab("Total Quantity Purchased per Transaction") +ylab("Number of Transactions")
+
+
+surefoot_04_02 <- surefoot_04_01 %>% filter(Qualify == "Qualify_GWP")
+  surefoot_04_02 %>%
+  group_by(val_chose_GWP) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(val_chose_GWP), y = counts)) + geom_bar(stat = 'identity', fill = "coral1", width = .3) + ggtitle("Fig 6 Qualify GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+
+surefoot_04_02_01 <- surefoot_04_01 %>% filter(Qualify == "Do_not_Qualify_GWP")
+  surefoot_04_02_01  %>%
+  group_by(val_chose_GWP) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(val_chose_GWP), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 6a Do not qualify GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+
+
+ 
+```
+
+Observations:
+Fig 1. The number of people who were Shown GWP and not shown GWP are proportionate.   
+
+Fig 2. To quaify GWP= Shown_GWP + Total revenue >=100.  
+      To not qualify GWP = Shown_GWP + Total revenue < 100  
+For those who donot qualify GWP is approximately thrice as those who qualify GWP   
+
+Fig 3. Chose GWp = Qualify + chose = yes  
+       Do not chose GWP = Qualify + chose = no  
+      There is an interesting trend in the quantity pf products purchased by those who Qualify GWP.  
+      In Fig 4 for those who did not chose GWP the Quantity of products were a few majority for 1 , 2, 4, 6 and 8 and the number of customers were significantly high.  
+      When compared with Fig 5 for those who chose GWP, the range of total quantity purchased was larger however the number of customers were spread out and significantly lower.  
+      
+So the test essentially did encorage visitors to add more items in cart and the number of visitors were comparitively very low,  but the number of visitors were significantly high when they qualify and did not chose GWP though the range of products were very low.  
+
+
+For those who qualify GWP: Device  
+```{r}
+surefoot_04_02 <- surefoot_04_01 %>% filter(Qualify == "Qualify_GWP")
+surefoot_04_01_04 <- surefoot_04_02 %>% filter(val_chose_GWP == "choose_GWP")
+surefoot_04_01_05 <- surefoot_04_02 %>% filter(val_chose_GWP == "Did_not_choose_GWP")
+ 
+surefoot_04_02 %>%
+  group_by(Device) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Device), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 7 Device for Qualify GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())  
+
+surefoot_04_01_04  %>%
+  group_by(Device) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Device), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 7a Device for Qualify GWP + Chose GWP ") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1)) 
+
+
+surefoot_04_01_05  %>%
+  group_by(Device) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Device), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 7b Device for Qualify GWP + Do not Chose GWP ") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())  
+
+```
+
+Observations
+For those who Qualify for GWP = Shown GWP + Total revenue >= $100  
+
+Fig 7. Desktop and Mobile seems have high potential in customer conversion.  
+Fig 7a Among those who qualify and chose GWP Desktop seems to have high potential in customer conversion.   
+Fig 7b Among those who qualify and did not chose GWP Desktop and Mobile seems to have high potential in customer conversion.    
+ 
+
+
+```{r}
+surefoot_04_03 <- surefoot_04_01 %>% filter(Qualify == "Do_not_Qualify_GWP")
+ 
+ surefoot_04_03 %>% 
+  group_by(Quantity_of_products) %>%
+  summarise(counts = n()) %>%
+  ggplot(aes(reorder(x = as.factor(Quantity_of_products), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1" , width = .3) + ggtitle("Fig 8 Quantity_of_products - Do not Qualify GWP") + geom_text(aes(label=counts), size = 2.5,   vjust=-0.25,angle = 90) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+
+ 
+```
+
+Observations
+For those who do not Qualify for GWP = Shown GWP + Total revenue < $100
+the range of quantity of products chosen is limited to 1,2,4,6 and 8.
+
+
+Bivariate analysis for Total Revenue
+```{r}
+  surefoot_04_01 %>%
+  ggplot(aes(x = log(Total_Revenue), color = Qualify)) + geom_density(alpha = 0.5) + ggtitle("Fig 9 Qualify ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Total Revenue" ) 
+
+
+ surefoot_04_01 %>%
+  ggplot(aes(x = log(Total_Revenue), color = val_chose_GWP)) + geom_density(alpha = 0.5) + ggtitle("Fig 10 Choose GWP ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Total Revenue" ) 
+
+    
+  surefoot_04_01 %>%
+  ggplot(aes(x = log(Total_Revenue), color = val_uniq_session)) + geom_density(alpha = 0.5) + ggtitle("Fig 11 Unique Session ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Total Revenue" ) 
+      
+      
+ surefoot_04_01 %>%
+  ggplot(aes(x = log(Total_Revenue), color = Device)) + geom_density(alpha = 0.5) + ggtitle("Fig 12 Device ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Total Revenue" ) 
+       
+    
+```
+
+Do not qualify GWP = shown_GWP + Total revenue  < 100   
+Qualify GWP = shown GWP + Total Revenue >= 100   
+NA - Not being tested   
+chose GWP = Qualify GWP + chose GWP   
+donot chose GWP = Qualify GWP + do not choose GWP    
+
+Fig 9 Those who do not qualify GWP, the Total Revenue per tansaction  range is lower     
+Those who qualify GWP, the Total Revenue has higher range of Tota Revenue per transaction
+
+Fig 10 shows that those who chose GWP, the Total Revenue has a wide range    
+
+Fig 11 shows that 50% of the visitors were shown GWP   
+
+Fig 12 shows that the range of revenue per visitor is uniform across visitors per transaction based on Device.   
+
+
+
+Bivariae analysis for Products purchased 
+```{r}
+
+ surefoot_05 %>% #filter(Quantity_of_products <= 15) %>%
+  ggplot(aes(x = Quantity_of_products, color = Qualify)) + geom_density(alpha =1.0) + ggtitle("Fig 13 Qualify ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Quantity of Products" ) 
+
+ surefoot_05 %>%  
+  ggplot(aes(x = log(Quantity_of_products), color = Qualify)) + geom_density(alpha =1.0) + ggtitle("Fig 13 Qualify ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Quantity of Products" ) 
+
+ 
+   surefoot_05 %>%  
+  ggplot(aes(x = Quantity_of_products, color = val_chose_GWP)) + geom_density(alpha = 0.5) + ggtitle("Fig 14 Choose GWP ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Quantity of Products" ) 
+
+   surefoot_05 %>%  
+  ggplot(aes(x = log(Quantity_of_products), color = val_chose_GWP)) + geom_density(alpha = 0.5) + ggtitle("Fig 14 Choose GWP ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Quantity of Products" ) 
+   
+   
+   
+   surefoot_05 %>%  
+  ggplot(aes(x = log(Quantity_of_products), color = Device)) + geom_density(alpha = 0.5) + ggtitle("Fig 16 Device ") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs( x= "Quantity of Products" )     
+   
+ 
+```
+
+ 
+ 
+
+Adding new variable Cost per hat incurred and Cost per hat did not incur
+```{r}
+surefoot_04_04 <- surefoot_04_01
+surefoot_04_04$Quantity_of_products <- as.numeric(surefoot_04_04$Quantity_of_products)
+
+surefoot_06 <- surefoot_04_04 %>% 
+  mutate(Cost_incurred = ifelse(Qualify == "Qualify_GWP" & val_chose_GWP == "choose_GWP", 7, 0)) %>%
+  mutate(Cost_not_incurred = ifelse(Qualify == "Qualify_GWP" & (val_chose_GWP == "Did_not_choose_GWP"), 7, 0)) %>%
+  mutate(Total_Revenue_with_cost = Total_Revenue- Cost_incurred) %>%
+   mutate(Average_Order_Value = round(Total_Revenue/Quantity_of_products,2)) 
+
+  ggplot(surefoot_06) + geom_histogram(aes(Average_Order_Value), binwidth = 5, fill = "blue",col = "black")
+
+```
+
+
+
+
+two sample t-test AOV 
+```{r}
+control_AOV <- surefoot_06 %>% filter(val_uniq_session == "No_GWP"  & Total_Revenue >=100 ) %>% select(Average_Order_Value)
+Treat_AOV <- surefoot_06 %>% filter(Qualify == "Qualify_GWP" & val_chose_GWP == "choose_GWP" ) %>% select(Average_Order_Value)
+set.seed(1)
+control_AOV_01 <- data.frame(control_AOV)
+Treat_AOV_01 <- data.frame(Treat_AOV )
+t.test(control_AOV_01, Treat_AOV_01 )
+ 
+
+```
+
+The t-test  for Potential outcome with and without treatment for AOV  shows that there  is statistical difference in the group means between control and treatment groups. 
+Difference in group means = Average causal effect + Selection bias. 
+
+
+t-test Total Revenue
+```{r}
+control_TR <- surefoot_06 %>% filter(val_uniq_session == "No_GWP"  & Total_Revenue >=100   ) %>% select(Total_Revenue)
+Treat_TR <- surefoot_06 %>% filter(Qualify == "Qualify_GWP" & val_chose_GWP == "choose_GWP" ) %>% select(Total_Revenue)
+set.seed(1)
+control_TR_01 <- data.frame(control_TR)
+Treat_TR_01 <- data.frame(Treat_TR )
+t.test(control_TR_01, Treat_TR_01 )
+
+```
+
+
+The t-test  for Potential outcome with and without treatment for Total Revenue shows that there  is statistical difference in the group means between control and treatment groups. 
+Difference in group means = Average causal effect + Selection bias. 
+
+
+
+
+
+How The Qualify affect the Cost incurred
+```{r}
+surefoot_06 %>% summarise(Total_Cost_Incurred = sum(Cost_incurred))
+  
+
+surefoot_06 %>% summarise(Total_Cost_Not_Incurred = sum(Cost_not_incurred))
+   
+ 
+```
+
+Cost incurred is very low as very few percentage of visitors prefered to choose GWP.
+
+
+
+How the choosing GWP  affect Average Order Value
+```{r}
+
+surefoot_06 %>%
+  ggplot(aes(x = Average_Order_Value, color = val_chose_GWP)) + geom_density(alpha = 0.5) + ggtitle("Average Order Value") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + labs(x="Average Order Value")
+ 
+glimpse(surefoot_06)
+
+
+surefoot_06 %>% ggplot(aes(x=Average_Order_Value, y = ..density..))+ geom_freqpoly(aes(color = val_chose_GWP), binwidth = 10) + labs(x="Average Order Value") + ggtitle("Average Order Value")
+ 
+```
+
+Average Order Value for those who choose GWP is very high as compared to those who did not choose GWP.
+
+
+
+ 
+
+Average order value (AOV) is the average dollar spend when a customer places an order on a website or in-store. By increasing their average order value, businesses can directly impact their revenue growth.
+```{r}
+#shown and total revenue >= 100 and choose GWP
+avg_ord <- surefoot_06 %>% filter(Cost_incurred > 0)
+TQ1 <- sqldf("select sum(Quantity_of_Products) from avg_ord")
+AO_tot_rev <- sqldf("select sum(Total_Revenue ) from avg_ord")
+AO_tot_rev
+AO_tot_ord <- sqldf("select count(*) from avg_ord")
+AO_tot_ord
+avg_ord_val <- round(AO_tot_rev/AO_tot_ord, 2) 
+
+paste0("Average Order value for Gift with Purchase is ", avg_ord_val)
+
+
+#What is the AOV for Shown GWP and Total revenue >= 100 but did not choose
+ avg_ord_wo <- surefoot_06 %>% filter(Cost_not_incurred >  0)
+ TQ2 <- sqldf("select sum(Quantity_of_Products) from avg_ord_wo")
+AO_tot_rev_wo <- sqldf("select sum(Total_Revenue ) from avg_ord_wo")
+AO_tot_rev_wo
+AO_tot_ord_wo <- sqldf("select count(*) from avg_ord_wo")
+AO_tot_ord_wo
+avg_ord_val_wo <- round(AO_tot_rev_wo/AO_tot_ord_wo, 2) 
+
+paste0("Average Order value for Purchase witout Gift but is qualified for Gift   ", avg_ord_val_wo)
+
+
+
+#shown GWP
+ avg_ord_s <- surefoot_06 %>% filter(val_uniq_session == "shown_GWP"  )
+ TQ3 <- sqldf("select sum(Quantity_of_Products) from avg_ord_s")
+AO_tot_rev_s <- sqldf("select sum(Total_Revenue ) from avg_ord_s")
+AO_tot_rev_s
+AO_tot_ord_s <- sqldf("select count(*) from avg_ord_s")
+AO_tot_ord_s
+avg_ord_val_s <- round(AO_tot_rev_s/AO_tot_ord_s, 2) 
+avg_ord_val_s
+paste0("Average Order value for shown GWP    ", avg_ord_val_s)
+ 
+#shown GWP and Total Revenue >=100
+ avg_ord_ss <- surefoot_06 %>% filter(val_uniq_session == "shown_GWP" & Total_Revenue >= 100)
+  TQ4 <- sqldf("select sum(Quantity_of_Products) from avg_ord_ss")
+AO_tot_rev_ss <- sqldf("select sum(Total_Revenue ) from avg_ord_ss")
+AO_tot_rev_ss
+AO_tot_ord_ss <- sqldf("select count(*) from avg_ord_ss")
+AO_tot_ord_ss
+avg_ord_val_ss <- round(AO_tot_rev_ss/AO_tot_ord_ss, 2) 
+avg_ord_val_ss
+paste0("Average Order value for shown GWP and Revenue >=100    ", avg_ord_val_ss)
+
+
+
+#no GWP and Total revenue >= 100
+avg_ord_n <- surefoot_06 %>% filter(val_uniq_session == "No_GWP" & Total_Revenue >= 100)
+TQ5 <- sqldf("select sum(Quantity_of_Products) from avg_ord_n")
+AO_tot_rev_n <- sqldf("select sum(Total_Revenue ) from avg_ord_n")
+AO_tot_rev_n
+AO_tot_ord_n <- sqldf("select count(*) from avg_ord_n")
+AO_tot_ord_n
+avg_ord_val_n <- round(AO_tot_rev_n/AO_tot_ord_n, 2) 
+
+avg_ord_val_n
+paste0("Average Order value for not shown GWP  and Revenue >= 100   ", avg_ord_val_n)
+ 
+
+paste0("Total Revenue for shown GWP and Revenue >= 100 and choose GWP  is ", AO_tot_rev)
+paste0("Total records for shown GWP and Revenue >= 100 and choose GWP  is ", AO_tot_ord)
+paste0("Total Revenue for shown GWP and Revenue >= 100 and did not choose GWP is ", AO_tot_rev_wo)
+paste0("Total records for shown GWP and Revenue >= 100 and did not choose GWP  is ", AO_tot_ord_wo)
+
+ paste0("Total Revenue shown GWP and Revenue >=100  is ", AO_tot_rev_ss)
+ paste0("Total records for shown GWP and Revenue >= 100   is ", AO_tot_ord_ss)
+ paste0("Total Revenue not showing GWP and Revenue >=100  is ", AO_tot_rev_n)
+  paste0("Total records not showing  GWP and Revenue >= 100   is ", AO_tot_ord_n)
+  
+  
+  
+ avg_ord <- surefoot_06 %>% filter(Cost_incurred > 0)
+TQ1 <- sqldf("select sum(Quantity_of_Products) from avg_ord")
+paste0("Total Quantity of Products  for shown GWP and Revenue >= 100 and choose GWP  is ", TQ1)
+
+ avg_ord_wo <- surefoot_06 %>% filter(Cost_not_incurred >  0)
+ TQ2 <- sqldf("select sum(Quantity_of_Products) from avg_ord_wo")  
+ paste0("Total Quantity of Products  for shown GWP and Revenue >= 100 and did not choose GWP  is ", TQ2)
+ 
+ 
+  avg_ord_ss <- surefoot_06 %>% filter(val_uniq_session == "shown_GWP" & Total_Revenue >= 100)
+  TQ4 <- sqldf("select sum(Quantity_of_Products) from avg_ord_ss")
+  paste0("Total Quantity of Products  for shown GWP and Revenue >= 100   is ", TQ4)
+  
+avg_ord_n <- surefoot_06 %>% filter(val_uniq_session == "No_GWP" & Total_Revenue >= 100)
+TQ5 <- sqldf("select sum(Quantity_of_Products) from avg_ord_n") 
+ paste0("Total Quantity of Products  not showing  GWP and Revenue >= 100   is ", TQ5)
+   
+```
+
+
+ 
+
+Prescriptive- Differences in Differences - Causal Effect
+Post period is when shown GWP
+Use purchase >= $100 and choose GWP  as treatment post period
+ 
+The interaction term id DD causal effect.
+```{r}
+set.seed(1234) 
+Final_file   <-  surefoot_06 %>% mutate(Period_post = ifelse(val_uniq_session == "shown_GWP", 1, 0))
+
+
+Final_file_01 <- Final_file %>% mutate(Treat1 = ifelse(Period_post == 0 & Total_Revenue  >= 100  , 1, ifelse(Period_post == 1 & Total_Revenue  >= 100 & val_chose_GWP == "choose_GWP" , 1,0)))
+
+ 
+Diff1_TR2 <- lm(Total_Revenue  ~ Treat1 + Period_post + Treat1 * Period_post, data = Final_file_01  )
+summary(Diff1_TR2)
+ 
+```
+
+ for every one unit addition of chosing GWP, the Total Revenue value has a lift of  approx. $75.96.   
+
+   
+```{r}
+sqldf("select Transaction_id, Device, Quantity_of_products, Total_Revenue  , val_uniq_session from surefoot_06 where total_revenue =0")
+
+sqldf("select Transaction_id, Device, Quantity_of_products, Total_Revenue, val_chose_GWP, Qualify  from surefoot_06 where val_chose_GWP = 'choose_GWP' and Qualify = 'Do_not_Qualify_GWP'")
+ 
+```
+
+The missing information is the Total Revenue that has $0 values.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
