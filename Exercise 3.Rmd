@@ -1,0 +1,306 @@
+---
+title: "Exercise 3"
+author: "Shyni David"
+date: "12/7/2019"
+output: html_document
+---
+
+Loading packages
+```{r}
+library(openxlsx)
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(sqldf)
+ 
+```
+
+
+
+Import Data
+ 
+```{r}
+EX32 <-  read_excel("~/Desktop/Job related/Surefoot/Surefoot 2/Surefoot- GA/Analysis - 2/Exercise 3.xlsx", sheet = 2)
+
+EX33 <-  read_excel("~/Desktop/Job related/Surefoot/Surefoot 2/Surefoot- GA/Analysis - 2/Exercise 3.xlsx", sheet = 3)
+ 
+```
+
+
+Data Wrangling
+```{r}
+ 
+colnames(EX32)[colnames(EX32)=="Day Index"] <- "Day_Index" 
+colnames(EX33)[colnames(EX33)=="Device Category"] <- "Device_Category" 
+
+```
+
+
+Visualizations
+```{r}
+
+EX32 %>% ggplot() + geom_histogram(aes(Revenue), binwidth = 1000, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+EX32 %>% ggplot() + geom_histogram(aes(Transactions), binwidth = 40, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+EX32 %>% ggplot() + geom_histogram(aes(Users), binwidth = 40, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+EX32 %>% ggplot() + geom_histogram(aes(Sessions), binwidth = 40, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+EX33 %>% ggplot() + geom_histogram(aes(Transactions), binwidth = 100, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+EX33 %>% ggplot() + geom_histogram(aes(Users), binwidth = 100, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+EX33 %>% ggplot() + geom_histogram(aes(Sessions), binwidth = 100, fill = "blue",col = "black") + facet_wrap(~Segment) 
+
+g <- ggplot(EX32, aes(Day_Index, Revenue, fill=Segment))
+g + geom_boxplot(varwidth=T) + 
+    labs(title="Box plot", 
+         subtitle="Fig.1 Revenue by Day and Segment ",
+         x="Day Index",
+         y="Revenue") + facet_wrap(~Segment) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) )
+
+
+
+g <- ggplot(EX32, aes(Day_Index, Sessions, fill=Segment))
+g + geom_boxplot(varwidth=T ) + 
+    labs(title="Box plot", 
+         subtitle="Fig.1 Sessions by Day and Segment ",
+         x="Day Index",
+         y="Revenue") + facet_wrap(~Segment) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) )
+
+g <- ggplot(EX32, aes(Day_Index, Users, fill=Segment))
+g + geom_boxplot(varwidth=T ) + 
+    labs(title="Box plot", 
+         subtitle="Fig.1 Users by Day and Segment ",
+         x="Day Index",
+         y="Revenue") + facet_wrap(~Segment) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) )
+
+
+g <- ggplot(EX32, aes(Day_Index, Transactions, fill=Segment))
+g + geom_boxplot(varwidth=T ) + 
+    labs(title="Box plot", 
+         subtitle="Fig.1 Transactions by Day and Segment ",
+         x="Day Index",
+         y="Revenue") + facet_wrap(~Segment) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) )
+
+
+EX32 %>%  
+ggplot(aes(x=Day_Index, y=Revenue, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig.1 Revenue by Day and Segment ") +xlab("Day_Index") + ylab("Revenue") +   scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+
+EX32 %>%  
+ggplot(aes(x=Day_Index, y=Transactions, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig.2 Transactions by Day and Segment ") +xlab("Day_Index") + ylab("Transactions") +    scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+
+EX32 %>%  
+ggplot(aes(x=Day_Index, y=Sessions, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig. 3 Sessions by Day and Segment ") + xlab("Day_Index") + ylab("Sessions") +  scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+
+EX32 %>%  
+ggplot(aes(x=Day_Index, y=Users, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig. 4 Users by Day and Segment") + xlab("Day_Index") + ylab("Users") +  scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+
+EX32 %>%  
+ggplot(aes(x=Transactions, y=Revenue , color = Segment)) + 
+  geom_point(stat="identity" )  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig. 5 Revenue - Transactions") +xlab("Transactions") + ylab("Revenue") +    scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+
+EX32 %>%  
+ggplot(aes(x=Sessions , y=Revenue , color = Segment)) + 
+  geom_point(stat="identity" )  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig. 6 Revenue - Sessions ") +xlab("Sessions") + ylab("Revenue") +   scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+EX32 %>%  
+ggplot(aes(x=Users , y=Revenue , color = Segment)) + 
+  geom_point(stat="identity" )  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Fig. 7 Revenue - Users") +xlab("Users") + ylab("Revenue") +    scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) + geom_smooth(method = "lm", se = FALSE)
+
+
+
+########
+
+EX33 %>%  
+ggplot(aes(reorder(x=Device_Category, Users), y=Users, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Users by Device and Segment ") +xlab("Device") + ylab("Users") +    scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment)  
+
+
+EX33 %>%  
+ggplot(aes(reorder(x=Device_Category, Sessions), y=Sessions, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Sessions by Device and Segment ") +xlab("Device") + ylab("Sessions") +   scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) 
+
+
+EX33 %>%  
+ggplot(aes(reorder(x=Device_Category, Transactions), y=Transactions, fill=Segment)) + 
+  geom_bar(stat="identity", position = "dodge")  + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1) ) + ggtitle("Transactions by Device and Segment ") +xlab("Device") + ylab("Transactions") +    scale_fill_manual(values=c("red", "darkgreen", "springgreen1", "turquoise2"))+ guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) + scale_shape_manual(values=c(3:9))  + facet_wrap(~Segment) 
+
+```
+
+
+
+
+
+
+t-test- Revenue-mobile
+```{r}
+
+set.seed(1234) 
+
+EX32_01 <- EX32 %>% mutate(Segment1 = ifelse(Segment == "sure-1-v0 desktop", 1, ifelse(Segment == "sure-1-v1 desktop", 1, ifelse(Segment == "sure-1-v0 mobile", 2, ifelse(Segment == "sure-1-v1 mobile", 2, 3)))))
+
+#Desktop
+EX32_02_d <- EX32_01 %>% filter(Segment1 == 1)
+#Mobile
+EX32_02_m <- EX32_01 %>% filter(Segment1 == 2)
+
+#Desktop
+EX32_d   <-  EX32_02_d  %>% mutate(Period_post = ifelse(Segment == "sure-1-v1 desktop", 1, 0))
+
+#Mobile
+EX32_m   <-  EX32_02_m  %>% mutate(Period_post = ifelse(Segment == "sure-1-v1 mobile", 1, 0))
+
+
+
+control_revenue <- EX32_m %>% filter(Segment == "sure-1-v0 mobile") %>% select(Revenue)
+
+test_revenue <- EX32_m %>% filter(Segment == "sure-1-v1 mobile") %>% select(Revenue)
+
+set.seed(1)
+control_mobile_revenue_01 <- data.frame(control_revenue)
+test_mobile_revenue_01 <- data.frame(test_revenue)
+
+t.test(control_mobile_revenue_01, test_mobile_revenue_01)
+
+```
+
+
+t-test- Revenue-desktop
+```{r}
+control_revenue <- EX32_d %>% filter(Segment == "sure-1-v0 desktop") %>% select(Revenue)
+
+test_revenue <- EX32_d %>% filter(Segment == "sure-1-v1 desktop") %>% select(Revenue)
+
+set.seed(1)
+control_desktop_revenue_01 <- data.frame(control_revenue)
+test_desktop_revenue_01 <- data.frame(test_revenue)
+
+t.test(control_desktop_revenue_01, test_desktop_revenue_01)
+
+```
+
+
+t-test- Transactions-desktop
+```{r}
+control_Txn <- EX32_d %>% filter(Segment == "sure-1-v0 desktop") %>% select(Transactions)
+
+test_Txn<- EX32_d %>% filter(Segment == "sure-1-v1 desktop") %>% select(Transactions)
+
+set.seed(1)
+control_desktop_Txn_01 <- data.frame(control_Txn)
+test_desktop_Txn_01 <- data.frame(test_Txn)
+
+t.test(control_desktop_Txn_01, test_desktop_Txn_01)
+
+```
+
+
+
+t-test- Transaction-mobile
+```{r}
+control_Txn <- EX32_m %>% filter(Segment == "sure-1-v0 mobile") %>% select(Transactions)
+
+test_Txn<- EX32_m %>% filter(Segment == "sure-1-v1 mobile") %>% select(Transactions)
+
+set.seed(1)
+control_mobile_Txn_01 <- data.frame(control_Txn)
+test_mobile_Txn_01 <- data.frame(test_Txn)
+
+t.test(control_mobile_Txn_01, test_mobile_Txn_01)
+
+```
+
+
+t-test- Sessions-mobile
+```{r}
+control_Sessions <- EX32_m %>% filter(Segment == "sure-1-v0 mobile") %>% select(Sessions)
+
+test_Sessions <- EX32_m %>% filter(Segment == "sure-1-v1 mobile") %>% select(Sessions)
+
+set.seed(1)
+control_mobile_Sessions_01 <- data.frame(control_Sessions)
+test_mobile_Sessions_01 <- data.frame(test_Sessions)
+
+t.test(control_mobile_Sessions_01 , test_mobile_Sessions_01)
+
+```
+
+
+
+t-test- Sessions-desktop
+```{r}
+control_Sessions <- EX32_d %>% filter(Segment == "sure-1-v0 desktop") %>% select(Sessions)
+
+test_Sessions <- EX32_d %>% filter(Segment == "sure-1-v1 desktop") %>% select(Sessions)
+
+set.seed(1)
+control_desktop_Sessions_01 <- data.frame(control_Sessions)
+test_desktop_Sessions_01 <- data.frame(test_Sessions)
+
+t.test(control_desktop_Sessions_01, test_desktop_Sessions_01)
+
+```
+
+
+t-test- Users-desktop
+```{r}
+control_Users <- EX32_d %>% filter(Segment == "sure-1-v0 desktop") %>% select(Users)
+
+test_Users <- EX32_d %>% filter(Segment == "sure-1-v1 desktop") %>% select(Users)
+
+set.seed(1)
+control_desktop_Users_01 <- data.frame(control_Users)
+test_desktop_Users_01 <- data.frame(test_Users)
+
+t.test(control_desktop_Users_01, test_desktop_Users_01)
+
+```
+
+
+
+t-test- Users-mobile
+```{r}
+control_Users <- EX32_m %>% filter(Segment == "sure-1-v0 mobile") %>% select(Users)
+
+test_Users <- EX32_m %>% filter(Segment == "sure-1-v1 mobile") %>% select(Users)
+
+set.seed(1)
+control_mobile_Users_01 <- data.frame(control_Users)
+test_mobile_Users_01 <- data.frame(test_Users)
+
+t.test(control_mobile_Users_01, test_mobile_Users_01)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
