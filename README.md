@@ -1,5 +1,5 @@
 # Surefoot
-Data Analysis & Report
+###Data Analysis & Report
 Prepared for Surefoot
 Shyni David
 October 2019
@@ -43,7 +43,7 @@ a.	Return Per Visitor (RPV): It is a measurement of the amount of money generate
 b.	Conversion Rate: It is defined as the total number of visitors divided by the number of conversions made on the Client’s website. The higher the conversion rate, the higher the multiplier of the AOV will be for overall revenue. 
 
 
-Data Analysis & Report Prepared for Surefoot Shyni David December 2019
+###Data Analysis & Report Prepared for Surefoot Shyni David December 2019
 
 Exercise 1- Use GA sandbox to determine Top 5 Channels, Behavior, Browsers, Device and Anything Else Relevant. 
 Exercise 3 - Apply Statistical Analysis on  A/B testing 
